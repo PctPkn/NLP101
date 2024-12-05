@@ -1,107 +1,111 @@
-import openai
 import streamlit as st
+import openai
 import pandas as pd
 
-# Configure the OpenAI API key
-openai_api_key = st.sidebar.text_input("Enter your OpenAI API Key", type="password")
-if openai_api_key:
-    openai.api_key = openai_api_key
+# Add custom pastel theme using CSS
+st.markdown("""
+    <style>
+    body {
+        background-color: #FCE4EC; /* Light pink background */
+    }
+    .stApp {
+        background-color: #FCE4EC;
+    }
+    h1, h2, h3, h4, h5, h6 {
+        color: #4A148C; /* Deep purple for headings */
+    }
+    .sidebar .sidebar-content {
+        background-color: #FFF8E1; /* Light yellow sidebar */
+    }
+    button {
+        background-color: #81D4FA; /* Light blue buttons */
+        color: white;
+        border-radius: 5px;
+        border: none;
+        font-size: 16px;
+    }
+    button:hover {
+        background-color: #4FC3F7; /* Slightly darker blue on hover */
+    }
+    .stTextArea, .stDataFrame {
+        background-color: #EDE7F6; /* Light purple for text and tables */
+        border: 2px solid #CE93D8; /* Lavender borders */
+        border-radius: 10px;
+    }
+    .download-button {
+        background-color: #FFCCBC; /* Light coral for download button */
+        color: #BF360C; /* Deep orange text */
+        font-size: 16px;
+        padding: 10px;
+        border-radius: 10px;
+        border: none;
+    }
+    .download-button:hover {
+        background-color: #FFAB91; /* Slightly darker coral on hover */
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-# Function to generate Kanbun (漢文) poems using the OpenAI API
-def generate_kanbun(prompt):
-    # Send a request to ChatGPT to create a poem
-    response = openai.chat.completions.create(
-        model="gpt-3.5-turbo",  # or "gpt-4" if you want to use GPT-4
-        messages=[{"role": "system", "content": "You are an expert in writing Kanbun (漢文) poems."},
-                  {"role": "user", "content": prompt}],
-        max_tokens=100,
-        temperature=0.7
-    )
-    kanbun = response.choices[0].message.content.strip()
-    return kanbun
+# Sidebar for OpenAI API key
+st.sidebar.header("API Key")
+api_key = st.sidebar.text_input("Enter your OpenAI API key:", type="password")
 
-# Function to translate Kanbun (漢文) into English
-def translate_kanbun_to_english(kanbun):
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "system", "content": "You are an expert in translating Kanbun (漢文) into English."},
-                  {"role": "user", "content": f"Translate this Kanbun into English: {kanbun}"}],
-        max_tokens=200,
-        temperature=0.7
-    )
-    translation = response.choices[0].message.content.strip()
-    return translation
+# App Title
+st.title("💖 Cloze Test Generator 💖")
 
-# Function to extract interesting vocabulary from Kanbun (漢文)
-def extract_vocabulary(kanbun):
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "system", "content": "You are an expert in extracting vocabulary from Kanbun (漢文)."},
-                  {"role": "user", "content": f"Extract interesting vocabulary from this Kanbun: {kanbun}"}],
-        max_tokens=200,
-        temperature=0.7
-    )
-    vocabulary = response.choices[0].message.content.strip()
-    return vocabulary
+# Input Section
+st.header("📜 Input Passage")
+passage = st.text_area("Enter the passage to generate cloze test questions:")
 
-# Main function to handle the Streamlit app
-def main():
-    st.title("AI Kanbun (漢文) Poem Generator")
-
-    theme = st.text_input("Enter a theme for the poem (e.g., nature, seasons, flowers):")
-
-    if st.button("Generate Kanbun"):
-        if theme:
-            prompt = f"Create a Kanbun (漢文) poem related to {theme}."
-            kanbun = generate_kanbun(prompt)
-
-            # Translate Kanbun to English
-            translation = translate_kanbun_to_english(kanbun)
-
-            # Extract interesting vocabulary
-            vocabulary = extract_vocabulary(kanbun)
-
-            st.subheader("Generated Kanbun Poem:")
-            st.write(kanbun)
-
-            st.subheader("English Translation:")
-            st.write(translation)
-
-            st.subheader("Interesting Vocabulary from Kanbun:")
-            st.write(vocabulary)
-
-            data = {
-                "Theme": [theme],
-                "Kanbun Poem": [kanbun],
-                "English Translation": [translation],
-                "Interesting Vocabulary": [vocabulary]
-            }
-            df = pd.DataFrame(data)
-
-            # Display DataFrame
-            st.subheader("Data in Table Format:")
-            st.dataframe(df)
-
-            # CSV download button
-            st.download_button(
-                label="Download as CSV",
-                data=df.to_csv(index=False),
-                file_name="kanbun_data.csv",
-                mime="text/csv"
+# Button to generate cloze test
+if st.button("Generate Cloze Test"):
+    if not api_key:
+        st.error("Please enter your OpenAI API key.")
+    elif not passage:
+        st.error("Please enter a passage to generate questions.")
+    else:
+        # Set OpenAI API key
+        openai.api_key = api_key
+        
+        # Prompt engineering for cloze test generation
+        prompt = f"""
+        Generate 10 cloze test questions from the following passage:
+        '{passage}'
+        Provide the output in the following format:
+        - Question: (Cloze test sentence with blank)
+        - Answer: (Correct answer)
+        """
+        
+        try:
+            # Call OpenAI API
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "system", "content": prompt}]
             )
-
-            # Excel download button
-            excel_data = BytesIO()
-            df.to_excel(excel_data, index=False, engine='openpyxl')
-            excel_data.seek(0)
+            
+            # Process API response
+            content = response.choices[0].message.content.strip()
+            questions = []
+            for line in content.split("\n"):
+                if line.startswith("Question"):
+                    q = line.split(":", 1)[1].strip()
+                elif line.startswith("Answer"):
+                    a = line.split(":", 1)[1].strip()
+                    questions.append({"Question": q, "Answer": a})
+            
+            # Create and display DataFrame
+            df = pd.DataFrame(questions)
+            st.dataframe(df, width=700, height=400)
+            
+            # Downloadable CSV
+            csv = df.to_csv(index=False).encode("utf-8")
             st.download_button(
-                label="Download as Excel",
-                data=excel_data,
-                file_name="kanbun_data.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                label="💾 Download Questions",
+                data=csv,
+                file_name="cloze_test.csv",
+                mime="text/csv",
+                key="download-button",
             )
-        else:
-            st.warning("Please provide a theme for the poem.")
-
-if __name__ == "__main__":
-    main()
+        
+        except Exception as e:
+            st.error(f"An error occurred: {e}")
