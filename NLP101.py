@@ -78,7 +78,7 @@ if st.button("Generate Cloze Test"):
         
         try:
             # Call OpenAI API
-            response = openai.ChatCompletion.create(
+            response = openai.ChatCompletions.create(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "system", "content": prompt}]
             )
